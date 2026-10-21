@@ -1,0 +1,10 @@
+{
+  "name": "chatgpt-desktop-linux-build-tools",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Local build tools for an unofficial Linux adaptation of the Windows ChatGPT app",
+  "devDependencies": {
+    "@electron/asar": "4.3.1",
+    "electron": "41.0.3"
+  }
+}
