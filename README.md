@@ -4,7 +4,23 @@ Build a Linux `.deb` from a Windows ChatGPT app package you supply locally. This
 
 ## Confirmed on one desktop
 
-Debian 13, KDE Plasma, x86-64, Wayland session through XWayland:
+**The current project has only been tested to work on Debian GNU/Linux 13 (Trixie), on the single system below. Compatibility with other distributions, desktop environments, and hardware has not been verified.**
+
+| Component | Tested configuration |
+| --- | --- |
+| Operating system | Debian GNU/Linux 13 (Trixie) |
+| KDE Plasma | 6.3.6 |
+| KDE Frameworks | 6.13.0 |
+| Qt | 6.8.2 |
+| Kernel | 6.12.111+deb13-amd64 (64-bit) |
+| Graphics platform | Wayland; app runs through XWayland |
+| Processor | 4 × Intel® N100 |
+| Memory | 16 GiB RAM (15.4 GiB usable) |
+| Graphics processor | Mesa Intel® Graphics |
+
+These are the tested system specifications, not minimum requirements. The tested launcher uses X11 with GPU acceleration disabled.
+
+Confirmed behavior:
 
 - Main window opens after the Linux visibility fix.
 - Account sign-in using a passkey works.
