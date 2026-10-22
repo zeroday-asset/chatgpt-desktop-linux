@@ -9,9 +9,9 @@ import shutil
 import struct
 import subprocess
 import tempfile
-from patch_app import selection_patch
+from patch_app import selection_patch, bootstrap_tabs_patch
 
-VERSION = '0.7.2'
+VERSION = '0.8.0'
 MARKER = '// Linux-only local transcript tools.'
 
 def parse_archive(raw):
@@ -45,11 +45,15 @@ def rewrite(raw):
     if source.count(MARKER)>1: raise ValueError('Ambiguous local-tools marker')
     source=source.split(MARKER,1)[0].rstrip()+'\n'+selection_patch()
     changed=source.encode('utf-8')
+    bootstraps=[n for n in entries if n.startswith('.vite/build/app-bootstrap-') and n.endswith('.js')]
+    if len(bootstraps)!=1:raise ValueError('Unsupported bootstrap layout')
+    bootstrap=bootstraps[0]
+    changes={main:changed,bootstrap:bootstrap_tabs_patch(contents(entries[bootstrap],data).decode('utf-8')).encode('utf-8')}
     payload=bytearray()
     for name,entry in entries.items():
-        chunk=changed if name==main else contents(entry,data)
+        chunk=changes.get(name,contents(entry,data))
         entry['offset']=str(len(payload));entry['size']=len(chunk)
-        if name==main and 'integrity' in entry:
+        if name in changes and 'integrity' in entry:
             old=entry['integrity']
             if old.get('algorithm')!='SHA256': raise ValueError('Unsupported integrity algorithm')
             block=old['blockSize']
@@ -64,7 +68,7 @@ def rewrite(raw):
     check,check_data=parse_archive(result)
     verified=dict(packed_files(check))
     for name,entry in entries.items():
-        expected=changed if name==main else contents(dict(packed_files(parse_archive(raw)[0]))[name],data)
+        expected=changes.get(name,contents(dict(packed_files(parse_archive(raw)[0]))[name],data))
         if contents(verified[name],check_data)!=expected: raise ValueError(f'Repack verification failed: {name}')
     return result
 

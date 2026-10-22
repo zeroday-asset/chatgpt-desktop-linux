@@ -132,3 +132,14 @@ Version 0.7.1 reconstructs the unavailable 0.7.0 download. Actual KDE rendering 
 ### Selection fix 0.7.2
 
 Selection now recognizes separate message IDs/author elements and conversation-turn wrappers. If no messages are recognized, the panel explains this instead of silently closing. Removed selected messages retain text snapshots, and restored turn IDs restore checkmarks. Automated layout fixtures cover these cases; the live app layout still needs user confirmation.
+
+
+### Persistent live thread tabs (0.8.0)
+
+A browser-style strip at the top has thread titles, close buttons and a + button. Ctrl+T opens a new tab, Ctrl+W closes the current tab, Ctrl+Tab / Ctrl+Shift+Tab switch, Ctrl+1–9 select a tab (9 means last). Ctrl-click or middle-click a sidebar thread opens it in the background; add Shift to activate it.
+
+Each tab keeps its own live Electron page, including its composer and scroll position, when switching. The Linux implementation uses separate native windows with matching bounds and a synchronized tab strip, showing the selected window and hiding others. It is not a single-window WebContentsView container, and the desktop window switcher may list multiple windows. Background throttling is disabled. Tab URLs, titles and the active tab are saved in the local app profile, with up to 30 restored on restart. Drafts, uploads and running tasks are not serialized across app exit. Closing a tab unloads its page; closing a detected generating tab asks first. Switching tabs does not navigate, reload or destroy another tab.
+
+A narrow popup command handler accepts tab operations only from registered chatgpt.com pages. Tab destinations are restricted to ChatGPT conversation/project paths. Other popup handling remains with the original application. Additional pages use the original native preload, session, permission/navigation setup and window styling, and are registered with native window lookup.
+
+Automated fixtures verify independent page lifetimes, background throttling, restart restoration, tab-strip controls, URL restrictions and ASAR idempotence. Real concurrent Work tasks and KDE window presentation still require testing in the installed app; account limits and server-side task behavior remain unchanged. Live tabs consume more memory than a single page.

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 BASE=Path(__file__).resolve().parent
-VERSION='0.7.2'
+VERSION='0.8.0'
 
 def put(root,path,content,mode=0o644):
     target=root/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content);target.chmod(mode)
@@ -17,7 +17,7 @@ def main():
         root=Path(tmp)
         for name in ['apply-local-tools.py','patch_app.py']:
             target=root/'usr/lib/chatgpt-local-tools'/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(BASE/name,target)
-        for name in ['local-toolbar.js','message-selection.js','routing-policy.js','model-router.js','appearance.js','window-opacity.js']:
+        for name in ['local-toolbar.js','message-selection.js','routing-policy.js','model-router.js','appearance.js','window-opacity.js','thread-tabs.js','live-tabs.js']:
             target=root/'usr/lib/chatgpt-local-tools/enhancements'/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(BASE/'enhancements'/name,target)
         put(root,'DEBIAN/control',f'''Package: chatgpt-desktop-local-tools
 Version: {VERSION}
@@ -52,7 +52,7 @@ if [ "${1:-}" = remove ]; then
 from pathlib import Path
 import hashlib,os,tempfile
 archive=Path('/opt/chatgpt-desktop-native/electron/resources/app.asar')
-backup=archive.with_name('app.asar.before-tools-0.7.2')
+backup=archive.with_name('app.asar.before-tools-0.8.0')
 state=Path('/var/lib/chatgpt-local-tools/installed-sha256')
 if archive.exists() and backup.exists() and state.exists():
  if hashlib.sha256(archive.read_bytes()).hexdigest()==state.read_text().strip():

@@ -17,6 +17,7 @@ def selection_patch():
     selection += '\n' + (Path(__file__).parent / 'enhancements/routing-policy.js').read_text()
     selection += '\n' + (Path(__file__).parent / 'enhancements/model-router.js').read_text()
     selection += '\n' + (Path(__file__).parent / 'enhancements/appearance.js').read_text()
+    selection += '\n' + (Path(__file__).parent / 'enhancements/thread-tabs.js').read_text()
     return '\n' + '''
 // Linux-only local transcript tools. Never run on sign-in or external pages.
 if (process.platform === "linux") {
@@ -34,7 +35,7 @@ if (process.platform === "linux") {
   Gfe.webContents.getAllWebContents().forEach(installSelection);
   Gfe.app.on("web-contents-created", (_, contents) => installSelection(contents));
 }
-'''.replace('SELECTION_SOURCE', json.dumps(selection)) + '\nimport * as LINUX_LOCAL_TOOLS_FS from "node:fs";\n' + (Path(__file__).parent / 'enhancements/window-opacity.js').read_text()
+'''.replace('SELECTION_SOURCE', json.dumps(selection)) + '\nimport * as LINUX_LOCAL_TOOLS_FS from "node:fs";\n' + (Path(__file__).parent / 'enhancements/window-opacity.js').read_text() + '\n' + (Path(__file__).parent / 'enhancements/live-tabs.js').read_text()
 
 def patch(root):
     mains = list((root / '.vite/build').glob('main-*.js'))
@@ -64,9 +65,44 @@ def patch(root):
     # Validate every expected target before writing either file.
     text += selection_patch()
     main.write_text(text)
-    bootstrap.write_text(boot)
+    bootstrap.write_text(bootstrap_tabs_patch(boot))
     return [main, bootstrap]
 
+
+
+def bootstrap_tabs_patch(source):
+    """Version-specific tab window registration in the app's native host."""
+    marker='// Linux live thread window factory.'
+    source=source.split(marker,1)[0].rstrip()+'\n'
+    edits=[
+        ('const n = (o) => Xf(o, t);', 'const n = (o) => globalThis.__linuxThreadTabsCommand?.(e, o) || Xf(o, t);'),
+        ('D(this, "getWindowHandle", (t) => {', 'D(this, "getWindowHandle", (t) => {\n      for (const {win} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && win.webContents.mainFrame.routingId === t) return win.getNativeWindowHandle();'),
+        ('const t = [this.mainWindow];', 'const t = [this.mainWindow, ...[...(globalThis.__linuxLiveTabWindows?.values() || [])].map(({win}) => win).filter(win => win !== this.mainWindow && !win.isDestroyed())];'),
+        ('D(this, "routingIdToWindowType", (t) => {', 'D(this, "routingIdToWindowType", (t) => {\n      for (const {win} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && win.webContents.mainFrame.routingId === t) return "main_view";'),
+    ]
+    for old,new in edits:
+        if new not in source:source=replace_once(source,old,new)
+    return source+'''// Linux live thread window factory.
+export function linuxCreateThreadWindow(url) {
+  const u = new URL(url);
+  if (process.platform !== "linux" || u.origin !== "https://chatgpt.com") throw new Error("Invalid tab URL");
+  const win = new st(Ns().constructorOptions);
+  be.applyBrowserWindowQuirks(win);
+  Ns().applyStyle(win);
+  $f(win.webContents, {
+    createWindow: () => ({action:"deny"}),
+    createPaymentWindow: (target) => ie.setupPaymentWindow(target),
+    onLaunchingBrowserForAuth: (...args) => ie.handleLaunchingBrowserForAuth(...args)
+  }, {onDownloadURL: (target) => win.webContents.downloadURL(target)});
+  Fi.attachToWebContents("main_view", win.webContents);
+  win.webContents.on("did-fail-load", (_, code, description, target, isMain) => {
+    if (isMain && code !== -3) win.setTitle("Tab failed to load: " + description);
+  });
+  win.loadURL(url);
+  return win;
+}
+globalThis.__linuxCreateThreadWindow = linuxCreateThreadWindow;
+'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -74,3 +110,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     for path in patch(args.app_directory):
         print(path)
+
