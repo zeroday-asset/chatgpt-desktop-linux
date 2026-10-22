@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 BASE=Path(__file__).resolve().parent
-VERSION='0.7.1'
+VERSION='0.7.2'
 
 def put(root,path,content,mode=0o644):
     target=root/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content);target.chmod(mode)
@@ -52,7 +52,7 @@ if [ "${1:-}" = remove ]; then
 from pathlib import Path
 import hashlib,os,tempfile
 archive=Path('/opt/chatgpt-desktop-native/electron/resources/app.asar')
-backup=archive.with_name('app.asar.before-tools-0.7.1')
+backup=archive.with_name('app.asar.before-tools-0.7.2')
 state=Path('/var/lib/chatgpt-local-tools/installed-sha256')
 if archive.exists() and backup.exists() and state.exists():
  if hashlib.sha256(archive.read_bytes()).hexdigest()==state.read_text().strip():

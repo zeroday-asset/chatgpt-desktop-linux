@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from patch_app import selection_patch
 
-VERSION = '0.7.1'
+VERSION = '0.7.2'
 MARKER = '// Linux-only local transcript tools.'
 
 def parse_archive(raw):

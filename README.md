@@ -127,3 +127,8 @@ Selection retains text snapshots while messages unload during scrolling. Reloadi
 Window opacity uses Local appearance in the app menu or Ctrl+Alt+Shift+Down/Up; Ctrl+Alt+Shift+0 resets. Requires xprop (x11-utils), X11/XWayland and compositor support. Native Wayland is unsupported. The whole window including text fades. No renderer privilege bridge is exposed.
 
 Version 0.7.1 reconstructs the unavailable 0.7.0 download. Actual KDE rendering and compositor opacity require verification on the user's machine. Only Debian 13 Trixie has been confirmed for the underlying port: KDE Plasma 6.3.6, Frameworks 6.13.0, Qt 6.8.2, kernel 6.12.111+deb13-amd64, Wayland/XWayland, Intel N100, 16 GiB RAM, Mesa Intel graphics.
+
+
+### Selection fix 0.7.2
+
+Selection now recognizes separate message IDs/author elements and conversation-turn wrappers. If no messages are recognized, the panel explains this instead of silently closing. Removed selected messages retain text snapshots, and restored turn IDs restore checkmarks. Automated layout fixtures cover these cases; the live app layout still needs user confirmation.

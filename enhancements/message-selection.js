@@ -5,7 +5,7 @@
   let active = false, anchor = null, route = location.href;
   const selected = new Set(), snapshots = new Map();
   let order = [];
-  function capture(m){const clone=m.cloneNode(true);clone.querySelectorAll('.linux-message-checkbox,button,[aria-hidden="true"]').forEach(x=>x.remove());return {id:m.dataset.messageId,role:m.dataset.messageAuthorRole,text:(clone.innerText||clone.textContent||'').trim()};}
+  function capture(m){const clone=m.cloneNode(true);clone.querySelectorAll('.linux-message-checkbox,button,[aria-hidden="true"]').forEach(x=>x.remove());return {id:messageId(m),role:messageRole(m),text:(clone.innerText||clone.textContent||'').trim()};}
   const panel = document.createElement('div');
   panel.id = 'linux-message-selection';
   panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:2147483647;background:#202124;color:white;padding:12px;border:1px solid #888;border-radius:12px;max-width:420px;font:13px system-ui;box-shadow:0 4px 20px #0006';
@@ -21,15 +21,36 @@
     b.style.cssText = 'margin:3px;padding:6px;border:1px solid #aaa;border-radius:5px;background:#333;color:white;cursor:pointer';
     b.addEventListener('click', action); controls.append(b); return b;
   }
+  const fallbackIds=new WeakMap();let nextId=0;
+  function messageRole(m){
+    const explicit=m.getAttribute('data-message-author-role')||m.getAttribute('data-turn');
+    if(explicit==='user'||explicit==='assistant')return explicit;
+    const test=m.getAttribute('data-testid')||'';
+    if(test==='user-message'||test==='assistant-message')return test.split('-')[0];
+    const heading=m.querySelector('h5,h6,[data-message-author-role]');
+    const nested=heading?.getAttribute('data-message-author-role');if(nested)return nested;
+    const label=heading?.textContent?.trim()||m.getAttribute('aria-label')||'';
+    if(/^(you said|you:|user:)/i.test(label))return 'user';
+    if(/^(chatgpt said|chatgpt:|assistant:)/i.test(label))return 'assistant';
+    return 'message';
+  }
+  function messageId(m){
+    const turn=m.closest('[data-testid^="conversation-turn-"],article[data-turn-id]');
+    const id=m.getAttribute('data-message-id')||m.getAttribute('data-turn-id')||m.id||turn?.getAttribute('data-turn-id')||turn?.getAttribute('data-testid')||m.getAttribute('data-testid');
+    if(id&&id!=='user-message'&&id!=='assistant-message')return id+':'+messageRole(m);
+    if(!fallbackIds.has(m))fallbackIds.set(m,'local-message-'+(++nextId));
+    return fallbackIds.get(m);
+  }
   function messages() {
-    return [...document.querySelectorAll('[data-message-id][data-message-author-role]')];
+    const candidates=[...document.querySelectorAll('[data-message-author-role="user"],[data-message-author-role="assistant"],[data-testid="user-message"],[data-testid="assistant-message"],[data-testid^="conversation-turn-"],article[data-turn-id]')];
+    return candidates.filter(m=>!panel.contains(m)&&!candidates.some(other=>other!==m&&m.contains(other)));
   }
   function update() {
-    const loaded=messages(), ids=loaded.map(m=>m.dataset.messageId);
+    const loaded=messages(), ids=loaded.map(m=>messageId(m));
     for(let i=ids.length-1;i>=0;i--)if(!order.includes(ids[i])){const next=order.indexOf(ids[i+1]);if(next>=0)order.splice(next,0,ids[i]);else order.push(ids[i]);}
-    for(const m of loaded)if(selected.has(m.dataset.messageId))snapshots.set(m.dataset.messageId,capture(m));
+    for(const m of loaded)if(selected.has(messageId(m)))snapshots.set(messageId(m),capture(m));
     mode.textContent=active?'Exit selection mode':'Select messages';mode.setAttribute('aria-pressed',String(active));
-    status.textContent = active ? `${selected.size} selected. Shift-click selects a range. Selections survive scrolling; scroll to load earlier messages.` : 'Select portions of this chat to copy or save. Original messages stay here.';
+    status.textContent = active && !loaded.length ? 'No supported messages found on this page. Selection is still active; open a conversation or scroll to load messages.' : active ? `${selected.size} selected. Shift-click selects a range. Selections survive scrolling; scroll to load earlier messages.` : 'Select portions of this chat to copy or save. Original messages stay here.';
     for (const m of messages()) {
       let box = m.querySelector(':scope > .linux-message-checkbox');
       if (!active) { box?.remove(); continue; }
@@ -39,22 +60,22 @@
         box.setAttribute('aria-label', 'Select message');
         box.style.cssText = 'appearance:auto!important;display:block!important;width:26px!important;height:26px!important;margin:8px!important;accent-color:#10a37f;cursor:pointer;outline:2px solid #10a37f';
         box.addEventListener('click', e => {
-          const list = messages(), id = m.dataset.messageId;
+          const list = messages(), id = messageId(m);
           const wanted = box.checked;
-          const start = list.findIndex(x => x.dataset.messageId === anchor);
+          const start = list.findIndex(x => messageId(x) === anchor);
           const end = list.indexOf(m);
           const targets = e.shiftKey && start >= 0 ? list.slice(Math.min(start,end), Math.max(start,end)+1) : [m];
-          for (const x of targets) wanted ? selected.add(x.dataset.messageId) : selected.delete(x.dataset.messageId);
+          for (const x of targets) wanted ? selected.add(messageId(x)) : selected.delete(messageId(x));
           anchor = id; update();
         });
         m.prepend(box);
       }
-      box.checked = selected.has(m.dataset.messageId);
+      box.checked = selected.has(messageId(m));
     }
   }
   function entries(all = false) {
     if(all)return messages().map(capture);
-    for(const m of messages())if(selected.has(m.dataset.messageId))snapshots.set(m.dataset.messageId,capture(m));
+    for(const m of messages())if(selected.has(messageId(m)))snapshots.set(messageId(m),capture(m));
     return order.filter(id=>selected.has(id)&&snapshots.has(id)).map(id=>snapshots.get(id));
   }
   function transcript(all = false) {
@@ -67,8 +88,8 @@
     const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
-  const mode=button('Select messages', () => { active = !active; update(); if(active)window.LinuxLocalTools?.close(); });
-  button('Select loaded', () => { active = true; messages().forEach(m => selected.add(m.dataset.messageId)); update(); });
+  const mode=button('Select messages', () => { active = !active; update(); if(active&&messages().length)window.LinuxLocalTools?.close(); });
+  button('Select loaded', () => { active = true; messages().forEach(m => selected.add(messageId(m))); update(); });
   button('Clear', () => { selected.clear(); snapshots.clear(); order=[]; anchor = null; update(); });
   button('Copy', async () => {
     try { await navigator.clipboard.writeText(transcript()); status.textContent = 'Copied. Paste into a new chat in your project.'; }
@@ -98,13 +119,14 @@
   update();
   let scheduled = false;
   new MutationObserver(records => {
+    for(const r of records)for(const node of r.removedNodes||[]){if(node.nodeType!==1)continue;for(const m of [node,...node.querySelectorAll('[data-message-author-role],[data-testid^="conversation-turn-"]')]){const id=messageId(m);if(selected.has(id))snapshots.set(id,capture(m));}}
     if (records.every(r => panel.contains(r.target) || r.target === panel || r.target.classList?.contains('linux-message-checkbox'))) return;
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => {
+    (window.requestAnimationFrame||window.setTimeout)(() => {
       scheduled = false;
       if (route !== location.href) { route = location.href; selected.clear(); snapshots.clear(); order=[]; anchor = null; }
       update();
     });
-  }).observe(document.body, {childList:true, subtree:true});
+  }).observe(document.body, {childList:true, subtree:true,characterData:true});
 })();

@@ -1,6 +1,6 @@
 {
   "name": "chatgpt-desktop-linux-build-tools",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "description": "Local build tools for an unofficial Linux adaptation of the Windows ChatGPT app",
   "devDependencies": {
@@ -10,6 +10,6 @@
     "linkedom": "0.18.14"
   },
   "scripts": {
-    "test": "node --test tests/model-router.cjs tests/model-router-dom.cjs tests/toolbar.cjs tests/appearance.cjs && node tests/selection-dom.cjs"
+    "test": "node --test tests/model-router.cjs tests/model-router-dom.cjs tests/toolbar.cjs tests/appearance.cjs tests/message-layout.cjs && node tests/selection-dom.cjs"
   }
 }
