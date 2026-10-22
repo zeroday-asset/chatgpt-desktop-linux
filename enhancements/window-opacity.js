@@ -1,0 +1,10 @@
+// Main process only. No renderer IPC or shell execution.
+if(process.platform==='linux'){
+ const opacityPath=()=>Tg.join(Gfe.app.getPath('userData'),'linux-local-window-opacity.json');
+ let alpha=1;try{const n=JSON.parse(LINUX_LOCAL_TOOLS_FS.readFileSync(opacityPath(),'utf8')).opacity;if(Number.isFinite(n))alpha=Math.max(.4,Math.min(1,n));}catch{}
+ function applyOpacity(win,notify=false){try{if(!win||win.isDestroyed())return;if(!process.env.DISPLAY)throw Error('Window opacity requires X11 or XWayland.');const id=String(win.getNativeWindowHandle().readUInt32LE(0));const args=alpha===1?['-id',id,'-remove','_NET_WM_WINDOW_OPACITY']:['-id',id,'-f','_NET_WM_WINDOW_OPACITY','32c','-set','_NET_WM_WINDOW_OPACITY',String(Math.round(alpha*0xffffffff))];ht.execFileSync('xprop',args,{timeout:1500,stdio:'ignore'});}catch(e){if(notify)Gfe.dialog.showErrorBox('Window opacity unavailable',e.message);}}
+ function setOpacity(value,win){alpha=Math.max(.4,Math.min(1,value));applyOpacity(win||Gfe.BrowserWindow.getFocusedWindow(),true);try{LINUX_LOCAL_TOOLS_FS.writeFileSync(opacityPath(),JSON.stringify({opacity:alpha}),{mode:0o600});}catch{}}
+ const hooked=new WeakSet();function hook(win){if(hooked.has(win))return;hooked.add(win);win.on('show',()=>applyOpacity(win));if(win.isVisible())applyOpacity(win);win.webContents.on('before-input-event',(event,input)=>{if(input.type!=='keyDown'||!input.control||!input.alt||!input.shift)return;const key=input.key;if(key==='ArrowDown'||key==='ArrowUp'||key==='0'){event.preventDefault();setOpacity(key==='0'?1:alpha+(key==='ArrowUp'?.1:-.1),win);}});}
+ function ready(){Gfe.BrowserWindow.getAllWindows().forEach(hook);const menu=Gfe.Menu.getApplicationMenu()||new Gfe.Menu();if(!menu.items.some(i=>i.label==='Local appearance')){menu.append(new Gfe.MenuItem({label:'Local appearance',submenu:[{label:'Window opacity',submenu:[100,90,80,70,60,50,40].map(n=>({label:n+'%',click:()=>setOpacity(n/100)}))}]}));Gfe.Menu.setApplicationMenu(menu);}}
+ Gfe.app.on('browser-window-created',(_,win)=>hook(win));if(Gfe.app.isReady())ready();else Gfe.app.whenReady().then(ready);
+}

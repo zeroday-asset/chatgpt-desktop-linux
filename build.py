@@ -78,7 +78,7 @@ def main():
             raise ValueError('Only app version 1.2026.43 is validated for these patches')
         for changed in patch(app):
             run('node', '--check', changed)
-        version = '1.2026.43+linux0.2'
+        version = '1.2026.43+linux0.5'
         root = work / 'root'
         install = root / 'opt' / NAME
         shutil.copytree(electron, install / 'electron')

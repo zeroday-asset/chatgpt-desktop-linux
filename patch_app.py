@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Apply version-specific Linux compatibility edits; refuse unknown layouts."""
 import argparse
+import json
 from pathlib import Path
 
 
@@ -9,6 +10,31 @@ def replace_once(text, old, new):
         raise ValueError(f'Expected exactly one patch target: {old[:90]!r}')
     return text.replace(old, new, 1)
 
+
+def selection_patch():
+    selection = (Path(__file__).parent / 'enhancements/local-toolbar.js').read_text()
+    selection += '\n' + (Path(__file__).parent / 'enhancements/message-selection.js').read_text()
+    selection += '\n' + (Path(__file__).parent / 'enhancements/routing-policy.js').read_text()
+    selection += '\n' + (Path(__file__).parent / 'enhancements/model-router.js').read_text()
+    selection += '\n' + (Path(__file__).parent / 'enhancements/appearance.js').read_text()
+    return '\n' + '''
+// Linux-only local transcript tools. Never run on sign-in or external pages.
+if (process.platform === "linux") {
+  const installSelection = (contents) => {
+    const inject = () => {
+      try {
+        const url = new URL(contents.getURL());
+        if (url.protocol !== "https:" || url.hostname !== "chatgpt.com") return;
+        contents.executeJavaScript(SELECTION_SOURCE).catch(() => {});
+      } catch (_) {}
+    };
+    contents.on("did-finish-load", inject);
+    inject();
+  };
+  Gfe.webContents.getAllWebContents().forEach(installSelection);
+  Gfe.app.on("web-contents-created", (_, contents) => installSelection(contents));
+}
+'''.replace('SELECTION_SOURCE', json.dumps(selection)) + '\nimport * as LINUX_LOCAL_TOOLS_FS from "node:fs";\n' + (Path(__file__).parent / 'enhancements/window-opacity.js').read_text()
 
 def patch(root):
     mains = list((root / '.vite/build').glob('main-*.js'))
@@ -36,6 +62,7 @@ def patch(root):
         'D(this, "onMainWindowReadyToShow", () => {\n      we().getState().mainWindowReady(), this.webDesktopObserverProxy = new pm(this);',
         'D(this, "onMainWindowReadyToShow", () => {\n      if (process.platform === "linux") {\n        this.mainWindow.show();\n        this.mainWindow.focus();\n      }\n      we().getState().mainWindowReady(), this.webDesktopObserverProxy = new pm(this);')
     # Validate every expected target before writing either file.
+    text += selection_patch()
     main.write_text(text)
     bootstrap.write_text(boot)
     return [main, bootstrap]

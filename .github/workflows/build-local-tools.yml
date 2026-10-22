@@ -1,0 +1,21 @@
+name: Build local tools
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'enhancements/**'
+      - '*local-tools.py'
+      - 'build-tools-deb.py'
+      - 'patch_app.py'
+      - '.github/workflows/build-local-tools.yml'
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - run: python3 build-tools-deb.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-local-tools-deb
+          path: dist/chatgpt-desktop-local-tools_*_all.deb

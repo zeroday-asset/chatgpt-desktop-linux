@@ -1,0 +1,22 @@
+const {chromium}=require('/opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({acceptDownloads:true});
+ await page.route('https://chatgpt.com/**',r=>r.fulfill({contentType:'text/html',body:'<body>'+[1,2,3].map((n)=>`<div data-message-id="${n}" data-message-author-role="${n===2?'assistant':'user'}">Message ${n}</div>`).join('')+'</body>'}));
+ await page.goto('https://chatgpt.com/c/test');
+ await page.addScriptTag({path:'enhancements/message-selection.js'});
+ await page.getByRole('button',{name:'Select messages',exact:true}).click();
+ const boxes=page.getByRole('checkbox');
+ await boxes.nth(0).click(); await boxes.nth(2).click({modifiers:['Shift']});
+ assert.equal(await page.locator('input:checked').count(),3);
+ const download=page.waitForEvent('download'); await page.getByRole('button',{name:'Save .md',exact:true}).click();
+ const d=await download; const fs=require('node:fs'); const contents=fs.readFileSync(await d.path(),'utf8');
+ assert(contents.indexOf('Message 1')<contents.indexOf('Message 2')); assert(contents.includes('Message 3')); assert(!contents.includes('Select message'));
+ await page.getByRole('button',{name:'Clear',exact:true}).click(); assert.equal(await page.locator('input:checked').count(),0);
+ const jd=page.waitForEvent('download'); await page.getByRole('button',{name:'Dump JSON',exact:true}).click(); const json=JSON.parse(fs.readFileSync(await (await jd).path(),'utf8')); assert.equal(json.messages.length,3); assert.equal(json.attachmentsIncluded,false);
+ await page.evaluate(()=>{history.pushState({},'', '/c/another'); document.body.append(document.createElement('p'));});
+ await page.waitForTimeout(100); assert.equal(await page.locator('input:checked').count(),0);
+ console.log('PASS: range selection, ordered Markdown download, clear, JSON thread dump, route change');
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});
