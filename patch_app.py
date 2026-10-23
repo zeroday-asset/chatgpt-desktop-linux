@@ -35,7 +35,7 @@ if (process.platform === "linux") {
   Gfe.webContents.getAllWebContents().forEach(installSelection);
   Gfe.app.on("web-contents-created", (_, contents) => installSelection(contents));
 }
-'''.replace('SELECTION_SOURCE', json.dumps(selection)) + '\nimport * as LINUX_LOCAL_TOOLS_FS from "node:fs";\n' + (Path(__file__).parent / 'enhancements/window-opacity.js').read_text() + '\n' + (Path(__file__).parent / 'enhancements/live-tabs.js').read_text()
+'''.replace('SELECTION_SOURCE', json.dumps(selection)) + '\nimport * as LINUX_LOCAL_TOOLS_FS from "node:fs";\n' + (Path(__file__).parent / 'enhancements/window-opacity.js').read_text() + '\nconst LINUX_TAB_STRIP_HTML = ' + json.dumps((Path(__file__).parent / 'enhancements/thread-tab-strip.html').read_text()) + ';\n' + (Path(__file__).parent / 'enhancements/live-tabs.js').read_text()
 
 def patch(root):
     mains = list((root / '.vite/build').glob('main-*.js'))
@@ -74,34 +74,35 @@ def bootstrap_tabs_patch(source):
     """Version-specific tab window registration in the app's native host."""
     marker='// Linux live thread window factory.'
     source=source.split(marker,1)[0].rstrip()+'\n'
+    source=source.replace('for (const {win} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && win.webContents.mainFrame.routingId === t)', 'for (const {win,contents} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && !contents.isDestroyed() && contents.mainFrame.routingId === t)')
     edits=[
+        ('show: !1,\n      width: ji,', 'show: !1,\n      backgroundColor: "#212121",\n      width: ji,'),
         ('const n = (o) => Xf(o, t);', 'const n = (o) => globalThis.__linuxThreadTabsCommand?.(e, o) || Xf(o, t);'),
-        ('D(this, "getWindowHandle", (t) => {', 'D(this, "getWindowHandle", (t) => {\n      for (const {win} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && win.webContents.mainFrame.routingId === t) return win.getNativeWindowHandle();'),
+        ('D(this, "getWindowHandle", (t) => {', 'D(this, "getWindowHandle", (t) => {\n      for (const {win,contents} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && !contents.isDestroyed() && contents.mainFrame.routingId === t) return win.getNativeWindowHandle();'),
         ('const t = [this.mainWindow];', 'const t = [this.mainWindow, ...[...(globalThis.__linuxLiveTabWindows?.values() || [])].map(({win}) => win).filter(win => win !== this.mainWindow && !win.isDestroyed())];'),
-        ('D(this, "routingIdToWindowType", (t) => {', 'D(this, "routingIdToWindowType", (t) => {\n      for (const {win} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && win.webContents.mainFrame.routingId === t) return "main_view";'),
+        ('D(this, "routingIdToWindowType", (t) => {', 'D(this, "routingIdToWindowType", (t) => {\n      for (const {win,contents} of globalThis.__linuxLiveTabWindows?.values() || []) if (!win.isDestroyed() && !contents.isDestroyed() && contents.mainFrame.routingId === t) return "main_view";'),
     ]
     for old,new in edits:
         if new not in source:source=replace_once(source,old,new)
     return source+'''// Linux live thread window factory.
-export function linuxCreateThreadWindow(url) {
+export function linuxCreateThreadView(url, parent) {
   const u = new URL(url);
   if (process.platform !== "linux" || u.origin !== "https://chatgpt.com") throw new Error("Invalid tab URL");
-  const win = new st(Ns().constructorOptions);
-  be.applyBrowserWindowQuirks(win);
-  Ns().applyStyle(win);
-  $f(win.webContents, {
+  const options = Ns().constructorOptions;
+  const view = new (globalThis.__linuxWebContentsViewClass)({webPreferences:{...options.webPreferences, session:parent.webContents.session}});
+  $f(view.webContents, {
     createWindow: () => ({action:"deny"}),
     createPaymentWindow: (target) => ie.setupPaymentWindow(target),
     onLaunchingBrowserForAuth: (...args) => ie.handleLaunchingBrowserForAuth(...args)
-  }, {onDownloadURL: (target) => win.webContents.downloadURL(target)});
-  Fi.attachToWebContents("main_view", win.webContents);
-  win.webContents.on("did-fail-load", (_, code, description, target, isMain) => {
-    if (isMain && code !== -3) win.setTitle("Tab failed to load: " + description);
-  });
-  win.loadURL(url);
-  return win;
+  }, {onDownloadURL: (target) => view.webContents.downloadURL(target)});
+  Fi.attachToWebContents("main_view", view.webContents);
+  view.webContents.setUserAgent(parent.webContents.getUserAgent());
+  view.webContents.setZoomFactor(parent.webContents.getZoomFactor());
+  view.setBackgroundColor("#212121");
+  return view;
 }
-globalThis.__linuxCreateThreadWindow = linuxCreateThreadWindow;
+globalThis.__linuxCreateThreadView = linuxCreateThreadView;
+globalThis.__linuxNativeThreadURL = (url) => ot("main_view", url);
 '''
 
 if __name__ == '__main__':

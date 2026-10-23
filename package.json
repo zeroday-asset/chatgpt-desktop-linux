@@ -1,6 +1,6 @@
 {
   "name": "chatgpt-desktop-linux-build-tools",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Local build tools for an unofficial Linux adaptation of the Windows ChatGPT app",
   "devDependencies": {
