@@ -5,7 +5,7 @@
   "description": "Local build tools for an unofficial Linux adaptation of the Windows ChatGPT app",
   "devDependencies": {
     "@electron/asar": "4.3.1",
-    "electron": "41.0.3",
+    "electron": "42.11.9",
     "jsdom": "30.1.3",
     "linkedom": "0.18.14"
   },
