@@ -20,5 +20,5 @@ const config={show: !1,
       width: ji,};
 '''
         raw=archive({'package.json':'{"version":"1.2026.43"}', '.vite/build/main-fixture.js':'import * as Gfe from "electron"; const oqa_linux=true; function jpa() {}', '.vite/build/app-bootstrap-fixture.js':boot,'unchanged.txt':'keep me'})
-        result=u.rewrite(raw);self.assertEqual(result,u.rewrite(result));h,d=u.parse_archive(result);entries=dict(u.packed_files(h));main=u.contents(entries['.vite/build/main-fixture.js'],d).decode();self.assertIn('LinuxTranscriptWorkbench',main);self.assertIn('Load complete conversation',main);self.assertIn('transcript-engine.js',main);self.assertIn('window.updateTabs',main);self.assertEqual(u.contents(entries['unchanged.txt'],d),b'keep me')
+        result=u.rewrite(raw);self.assertEqual(result,u.rewrite(result));h,d=u.parse_archive(result);entries=dict(u.packed_files(h));main=u.contents(entries['.vite/build/main-fixture.js'],d).decode();self.assertIn('LinuxChatDump',main);self.assertIn('Dump chat',main);self.assertNotIn('Load complete conversation',main);self.assertIn('transcript-engine.js',main);self.assertIn('window.updateTabs',main);self.assertEqual(u.contents(entries['unchanged.txt'],d),b'keep me')
 if __name__=='__main__':unittest.main()

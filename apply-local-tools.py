@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from patch_app import selection_patch, bootstrap_tabs_patch
 
-VERSION = '0.11.0'
+VERSION = '0.12.0'
 MARKER = '// Linux-only local transcript tools.'
 
 def parse_archive(raw):
