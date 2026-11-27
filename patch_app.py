@@ -12,12 +12,8 @@ def replace_once(text, old, new):
 
 
 def selection_patch():
-    selection = (Path(__file__).parent / 'enhancements/local-toolbar.js').read_text()
-    selection += '\n' + (Path(__file__).parent / 'enhancements/message-selection.js').read_text()
-    selection += '\n' + (Path(__file__).parent / 'enhancements/routing-policy.js').read_text()
-    selection += '\n' + (Path(__file__).parent / 'enhancements/model-router.js').read_text()
-    selection += '\n' + (Path(__file__).parent / 'enhancements/appearance.js').read_text()
-    selection += '\n' + (Path(__file__).parent / 'enhancements/thread-tabs.js').read_text()
+    scripts=['transcript-engine.js','transcript-workbench.js','local-toolbar.js','routing-policy.js','model-router.js','appearance.js','thread-tabs.js']
+    selection='\n'.join('try {\n'+(Path(__file__).parent/'enhancements'/name).read_text()+'\n} catch (error) { console.error("Linux local tools: '+name+'", error); }' for name in scripts)
     return '\n' + '''
 // Linux-only local transcript tools. Never run on sign-in or external pages.
 if (process.platform === "linux") {
