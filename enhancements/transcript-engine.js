@@ -14,16 +14,26 @@
  function markdown(t,messages=t.messages){const selected=messages!==t.messages;return '# '+t.title+'\n\nConversation ID: '+t.id+'\nCreated: '+(t.createdAt||'Unavailable')+'\nUpdated: '+(t.updatedAt||'Unavailable')+'\nSource: '+t.source+'\nCaptured: '+t.capturedAt+'\nScope: '+(selected?'Selected excerpts':t.scope)+'\nCoverage: '+(selected?'Selection from '+t.completeness:t.completeness)+'\nAttachments: references only; original files are not included.\nAlternate branches: '+(t.branchCount||0)+' branching points; this export follows the selected/current branch.\n\n'+messages.map(m=>'## '+(m.role==='user'?'You':m.role==='assistant'?'ChatGPT':m.author||m.role)+(m.createdAt?' — '+m.createdAt:'')+'\n\n'+m.text).join('\n\n---\n\n')+'\n';}
  function historyItem(x){const id=x.id||x.conversation_id;if(typeof id!=='string')return null;return {id,title:String(x.title||'Untitled conversation'),createdAt:iso(x.create_time||x.created_at),updatedAt:iso(x.update_time||x.updated_at)};}
  function ordered(items,query='',sort='created-desc',texts={}){const terms=query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);return items.filter(x=>terms.every(term=>(x.title+' '+(x.createdAt||'')+' '+(x.updatedAt||'')+' '+x.id+' '+(texts[x.id]||'')).toLocaleLowerCase().includes(term))).sort((a,b)=>{const field=sort.startsWith('updated')?'updatedAt':'createdAt',av=a[field]?Date.parse(a[field]):null,bv=b[field]?Date.parse(b[field]):null;if(av===null&&bv!==null)return 1;if(bv===null&&av!==null)return -1;return ((av||0)-(bv||0))*(sort.endsWith('asc')?1:-1)||a.id.localeCompare(b.id);});}
+ async function indexText(items,cache,fetchConversation,progress,signal){
+  let done=0,failed=0;const errors=[];
+  for(const item of items){
+   if(signal?.aborted)throw new DOMException('Indexing canceled','AbortError');
+   const saved=cache.get(item.id),fresh=saved?.complete&&saved.updatedAt===item.updatedAt;
+   if(!fresh)try{const t=await fetchConversation(item.id,signal);cache.set(item.id,t);await progress({done:++done,failed,total:items.length,transcript:t});}catch(e){if(signal?.aborted||e.name==='AbortError')throw e;if(e.status===429||e.status===401||e.status===403)throw e;failed++;errors.push({id:item.id,error:e.message});await progress({done:++done,failed,total:items.length});}
+   else await progress({done:++done,failed,total:items.length});
+  }
+  return {done,failed,errors};
+ }
  function client(fetcher){
   async function request(path,signal){
    if(!/^\/backend-api\/(?:conversation\/[a-zA-Z0-9-]+|conversations\?offset=\d+&limit=100&order=updated)$/.test(path))throw Error('Unexpected conversation URL');
    const options={credentials:'include',signal,headers:{Accept:'application/json'}};
    let response=await fetcher(path,options);
    if(response.status===401||response.status===403){const session=await fetcher('/api/auth/session',{credentials:'include',signal,headers:{Accept:'application/json'}});if(session.ok){const payload=await session.json();if(payload.accessToken)response=await fetcher(path,{...options,headers:{...options.headers,Authorization:'Bearer '+payload.accessToken}});}}
-   if(!response.ok)throw Error('Conversation service returned HTTP '+response.status+'. Your chat is unchanged.');
+   if(!response.ok){const e=Error('Conversation service returned HTTP '+response.status+(response.status===429?'. Rate limited: indexing stopped; wait before trying again.':'. Your chat is unchanged.'));e.status=response.status;throw e;}
    return response.json();
   }
   return {conversation:async(id,signal)=>normalize(await request('/backend-api/conversation/'+id,signal),id),history:async(progress,signal)=>{let offset=0,total=null;const items=new Map(),pages=new Set();for(let page=0;page<1000;page++){const data=await request('/backend-api/conversations?offset='+offset+'&limit=100&order=updated',signal);if(!Array.isArray(data.items))throw Error('Unsupported history format');const signature=data.items.map(i=>i.id||i.conversation_id).join(',');if(data.items.length&&pages.has(signature))throw Error('History pagination repeated a page; indexing stopped.');pages.add(signature);for(const x of data.items){const item=historyItem(x);if(item)items.set(item.id,item);}total=Number.isFinite(data.total)?data.total:total;progress([...items.values()],total);offset+=data.items.length;if(!data.items.length||(total!==null&&offset>=total)||(total===null&&data.items.length<100))return [...items.values()];}throw Error('History limit reached; index may be partial.');}};
  }
- const api={cid,iso,text,normalize,markdown,historyItem,ordered,client};if(typeof module==='object'&&module.exports)module.exports=api;else root.LinuxTranscriptEngine=api;
+ const api={cid,iso,text,normalize,markdown,historyItem,ordered,indexText,client};if(typeof module==='object'&&module.exports)module.exports=api;else root.LinuxTranscriptEngine=api;
 })(typeof window!=='undefined'?window:globalThis);

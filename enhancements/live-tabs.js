@@ -8,7 +8,7 @@ if(process.platform==='linux'){
  function safeURL(value){try{const u=new URL(value);return u.origin==='https://chatgpt.com'&&!u.username&&!u.password&&/^\/(?:c\/[^/]+|g\/[^/]+(?:\/c\/[^/]+)?)?\/?$/.test(u.pathname)?u.origin+u.pathname:null;}catch{return null;}}
  function trusted(c){try{return !c.isDestroyed()&&new URL(c.getURL()).origin==='https://chatgpt.com';}catch{return false;}}
  function snapshot(){return {version:2,active,tabs:[...tabs].filter(([,t])=>!t.contents.isDestroyed()).map(([id,t])=>({id,url:safeURL(t.contents.getURL())||t.url,title:t.createdAt?new Date(t.createdAt).toLocaleString(undefined,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' — '+t.title:t.title,loading:t.loading}))};}
- function save(){if(quitting||!restored)return;try{const tmp=file()+'.tmp';LINUX_LOCAL_TOOLS_FS.writeFileSync(tmp,JSON.stringify(snapshot()),{mode:0o600});LINUX_LOCAL_TOOLS_FS.renameSync(tmp,file());}catch{}}
+ function save(){if(quitting||!restored)return;try{const tmp=file()+'.tmp';LINUX_LOCAL_TOOLS_FS.writeFileSync(tmp,JSON.stringify({...snapshot(),tabs:snapshot().tabs.map(t=>({...t,title:tabs.get(t.id).title,createdAt:tabs.get(t.id).createdAt||null}))}),{mode:0o600});LINUX_LOCAL_TOOLS_FS.renameSync(tmp,file());}catch{}}
  function draw(){if(strip&&!strip.webContents.isDestroyed())strip.webContents.executeJavaScript('window.updateTabs?.('+JSON.stringify(snapshot())+')').catch(()=>{});save();}
  function layout(){if(!root||root.isDestroyed())return;const [width,height]=root.getContentSize(),bar=Math.min(42,height);for(const [id,t]of tabs){t.view.setBounds({x:0,y:bar,width,height:Math.max(0,height-bar)});t.view.setVisible(id===active);}strip.setBounds({x:0,y:0,width,height:bar});}
  function activate(id){const t=tabs.get(id);if(!t||t.contents.isDestroyed())return;active=id;layout();t.contents.focus();root.setTitle(t.title||'ChatGPT');draw();}
@@ -40,7 +40,7 @@ if(process.platform==='linux'){
   root.on('resize',layout);root.on('closed',()=>{for(const t of tabs.values())if(!t.original&&!t.contents.isDestroyed())t.contents.close();if(!strip.webContents.isDestroyed())strip.webContents.close();});
   restored=true;layout();await strip.webContents.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent(LINUX_TAB_STRIP_HTML));draw();
   await open(first&&url==='https://chatgpt.com/'?first.url:url,true,first?.id,first?.title||root.getTitle());
-  for(const t of old)if(t.id!==first?.id)await open(t.url,false,t.id,t.title);if(url==='https://chatgpt.com/'&&tabs.has(stored?.active))activate(stored.active);else activate(active);draw();
+  for(const t of old)if(t.id!==first?.id)await open(t.url,false,t.id,t.title);for(const t of old)if(tabs.has(t.id)&&t.createdAt&&!Number.isNaN(Date.parse(t.createdAt)))tabs.get(t.id).createdAt=t.createdAt;if(url==='https://chatgpt.com/'&&tabs.has(stored?.active))activate(stored.active);else activate(active);draw();
  }
  function detect(c){c.on('did-finish-load',()=>initialize(c).catch(report));if(!c.isLoading()&&trusted(c))initialize(c).catch(report);}
  Gfe.app.on('before-quit',()=>{save();quitting=true;});Gfe.app.on('web-contents-created',(_,c)=>detect(c));Gfe.webContents.getAllWebContents().forEach(detect);
